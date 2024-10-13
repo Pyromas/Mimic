@@ -1,13 +1,13 @@
 import logging
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext
 import pandas as pd
 
-# Включаем ведение логов
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Глобальная переменная для хранения транзакций
+
 transactions = pd.DataFrame(columns=["type", "amount", "category"])
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -23,7 +23,7 @@ def add_income(update: Update, context: CallbackContext) -> None:
         amount = float(context.args[0])
         category = context.args[1]
         global transactions
-        transactions = transactions.append({"type": "income", "amount": amount, "category": category}, ignore_index=True)
+        transactions = pd.concat([transactions, pd.DataFrame({"type": ["income"], "amount": [amount], "category": [category]})], ignore_index=True)
         update.message.reply_text(f"Доход в размере {amount} руб. добавлен в категорию {category}.")
     except (IndexError, ValueError):
         update.message.reply_text("Используй команду так: /add_income <сумма> <категория>")
@@ -34,7 +34,7 @@ def add_expense(update: Update, context: CallbackContext) -> None:
         amount = float(context.args[0])
         category = context.args[1]
         global transactions
-        transactions = transactions.append({"type": "expense", "amount": amount, "category": category}, ignore_index=True)
+        transactions = pd.concat([transactions, pd.DataFrame({"type": ["expense"], "amount": [amount], "category": [category]})], ignore_index=True)
         update.message.reply_text(f"Расход в размере {amount} руб. добавлен в категорию {category}.")
     except (IndexError, ValueError):
         update.message.reply_text("Используй команду так: /add_expense <сумма> <категория>")
@@ -55,25 +55,16 @@ def summary(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     """Запускает бота."""
-    # Токен вашего бота
-    TOKEN = 'token'
+    TOKEN = ''  
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("add_income", add_income))
+    application.add_handler(CommandHandler("add_expense", add_expense))
+    application.add_handler(CommandHandler("summary", summary))
+
     
-    updater = Updater(TOKEN)
-
-    # Получаем диспетчер для регистрации обработчиков
-    dispatcher = updater.dispatcher
-
-    # Регистрация команд
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("add_income", add_income))
-    dispatcher.add_handler(CommandHandler("add_expense", add_expense))
-    dispatcher.add_handler(CommandHandler("summary", summary))
-
-    # Запускаем бота
-    updater.start_polling()
-
-    # Ждем завершения работы
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
